@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatsApp — Register UserBot</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #111827; color: #e5e7eb; min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; padding: 2rem 1rem;
+  }
+  .container { max-width: 560px; width: 100%; }
+  h1 { font-size: 1.75rem; margin-bottom: 0.25rem; color: #f9fafb; }
+  .subtitle { color: #9ca3af; margin-bottom: 1.5rem; font-size: 0.9rem; }
+  .card {
+    background: #1f2937; border: 1px solid #374151; border-radius: 12px;
+    padding: 1.5rem; margin-bottom: 1.5rem;
+  }
+  .card h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #f3f4f6; }
+  label { display: block; margin-bottom: 0.35rem; font-size: 0.85rem; color: #9ca3af; }
+  input, button {
+    width: 100%; padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.95rem;
+    outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  input {
+    background: #374151; border: 1px solid #4b5563; color: #f3f4f6; margin-bottom: 1rem;
+  }
+  input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.25); }
+  button {
+    background: #3b82f6; border: none; color: white; font-weight: 600; cursor: pointer;
+    margin-bottom: 0.5rem;
+  }
+  button:hover { background: #2563eb; }
+  button:disabled { background: #4b5563; cursor: not-allowed; }
+  button.secondary { background: #374151; border: 1px solid #4b5563; }
+  button.secondary:hover { background: #4b5563; }
+  button.danger { background: #dc2626; }
+  button.danger:hover { background: #b91c1c; }
+  #qr-container {
+    display: none; text-align: center; margin-top: 1rem;
+    padding: 1rem; background: white; border-radius: 12px;
+  }
+  #qr-code { max-width: 220px; }
+  #qr-status { margin-top: 0.5rem; font-size: 0.85rem; color: #374151; }
+  .error { color: #f87171; font-size: 0.85rem; margin-top: 0.5rem; }
+  .success { color: #4ade80; font-size: 0.85rem; margin-top: 0.5rem; }
+  #userbot-list { margin-top: 0.5rem; }
+  .userbot-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.75rem; border-bottom: 1px solid #374151; font-size: 0.9rem;
+  }
+  .userbot-item:last-child { border-bottom: none; }
+  .userbot-name { font-weight: 500; }
+  .userbot-phone { color: #9ca3af; font-size: 0.8rem; }
+  .actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
+  .actions button { width: auto; padding: 0.5rem 1rem; font-size: 0.85rem; }
+  .spinner {
+    display: inline-block; width: 16px; height: 16px; border: 2px solid #fff;
+    border-radius: 50%; border-top-color: transparent; animation: spin 0.6s linear infinite;
+    margin-right: 0.5rem; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  hr { border: none; border-top: 1px solid #374151; margin: 1rem 0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📱 WhatsApp Cloudflare Workers</h1>
+  <p class="subtitle">Durable Objects + Queue Architecture v2</p>
+
+  <!-- Register Card -->
+  <div class="card">
+    <h2>🔗 Register New UserBot</h2>
+    <label for="userbot-input">UserBot Name (a-z, 0-9, _, -)</label>
+    <input id="userbot-input" type="text" placeholder="mybot01" maxlength="32" />
+
+    <label for="password-input">Admin Password</label>
+    <input id="password-input" type="password" placeholder="Enter admin password" />
+
+    <button id="register-btn" onclick="registerWhatsApp()">
+      Generate QR Code
+    </button>
+    <div id="register-error" class="error"></div>
+
+    <div id="qr-container">
+      <img id="qr-code" src="" alt="QR Code" />
+      <div id="qr-status">Scan with WhatsApp on your phone</div>
+    </div>
+  </div>
+
+  <!-- Registered UserBots -->
+  <div class="card">
+    <h2>📋 Registered UserBots</h2>
+    <button class="secondary" onclick="loadUserBots()">Refresh List</button>
+    <div id="userbot-list">
+      <p style="color:#6b7280;font-size:0.85rem;margin-top:0.75rem;">Click "Refresh List" to load</p>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="secondary" onclick="location.href='/site/send-message'">
+      📤 Go to Send Message
+    </button>
+  </div>
+</div>
+
+<script>
+async function registerWhatsApp() {
+  const userBot = document.getElementById('userbot-input').value.trim()
+  const password = document.getElementById('password-input').value
+  const btn = document.getElementById('register-btn')
+  const errorEl = document.getElementById('register-error')
+  const qrContainer = document.getElementById('qr-container')
+  const qrImg = document.getElementById('qr-code')
+  const qrStatus = document.getElementById('qr-status')
+
+  errorEl.textContent = ''
+  qrContainer.style.display = 'none'
+
+  if (!userBot || !password) {
+    errorEl.textContent = 'Please fill in all fields'
+    return
+  }
+
+  btn.disabled = true
+  btn.innerHTML = '<span class="spinner"></span> Generating...'
+
+  try {
+    const res = await fetch('/api/register-whatsapp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+      body: JSON.stringify({ userBot, adminPassword: password })
+    })
+
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err.message || 'Registration failed')
+    }
+
+    const data = await res.json()
+    if (data.link) {
+      qrImg.src = data.link
+      qrContainer.style.display = 'block'
+      qrStatus.textContent = 'Scan with WhatsApp on your phone. The UserBot will appear in the list after ~30s.'
+      btn.textContent = '✓ QR Generated'
+    } else if (data.status === 'already_connected') {
+      errorEl.textContent = 'This UserBot is already connected!'
+      btn.textContent = 'Generate QR Code'
+    }
+  } catch (err) {
+    errorEl.textContent = err.message
+    btn.textContent = 'Generate QR Code'
+  } finally {
+    btn.disabled = false
+  }
+}
+
+async function loadUserBots() {
+  const listEl = document.getElementById('userbot-list')
+  listEl.innerHTML = '<span class="spinner"></span> Loading...'
+
+  try {
+    const res = await fetch('/api/userbots')
+    const data = await res.json()
+    const bots = data.userBots || []
+
+    if (bots.length === 0) {
+      listEl.innerHTML = '<p style="color:#6b7280;font-size:0.85rem;">No userBots registered yet</p>'
+      return
+    }
+
+    listEl.innerHTML = bots.map(b => `
+      <div class="userbot-item">
+        <div>
+          <div class="userbot-name">${escapeHtml(b.name)}</div>
+          <div class="userbot-phone">Phone: ${escapeHtml(b.phone)} | Updated: ${b.updatedAt}</div>
+        </div>
+        <button class="danger" style="width:auto;padding:0.3rem 0.6rem;font-size:0.75rem;"
+                onclick="deleteUserBot('${escapeHtml(b.name)}')">Delete</button>
+      </div>
+    `).join('')
+  } catch (err) {
+    listEl.innerHTML = `<p class="error">Failed to load: ${err.message}</p>`
+  }
+}
+
+async function deleteUserBot(name) {
+  if (!confirm(`Delete userBot "${name}"? This cannot be undone.`)) return
+
+  try {
+    const res = await fetch(`/api/userbots/${name}`, { method: 'DELETE' })
+    if (res.ok) {
+      loadUserBots()
+    } else {
+      const err = await res.json()
+      alert(err.message || 'Delete failed')
+    }
+  } catch (err) {
+    alert('Delete failed: ' + err.message)
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div')
+  div.textContent = str
+  return div.innerHTML
+}
+
+// Load on page ready
+loadUserBots()
+</script>
+</body>
+</html>

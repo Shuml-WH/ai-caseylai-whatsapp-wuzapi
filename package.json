@@ -1,0 +1,31 @@
+{
+  "name": "whatsapp-cloudflare-workers-v2",
+  "version": "2.0.0",
+  "description": "WhatsApp Cloudflare Workers — Durable Objects + Queue architecture",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "cf-typegen": "wrangler types",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@adiwajshing/keyed-db": "^0.2.4",
+    "@cacheable/node-cache": "^1.4.0",
+    "@hapi/boom": "^9.1.3",
+    "curve25519-js": "^0.0.4",
+    "lodash": "^4.17.21",
+    "long": "^5.3.1",
+    "pako": "^2.1.0",
+    "pino": "^9.6.0",
+    "qrcode-terminal": "^0.12.0",
+    "protobufjs": "^7.4.0",
+    "tweetnacl": "^1.0.3",
+    "whatsapp-cloudflare-workers": "^6.7.17-worker-1.0.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250303.0",
+    "typescript": "^5.5.0",
+    "wrangler": "^4.107.0"
+  }
+}

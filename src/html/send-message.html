@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatsApp — Send Message</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #111827; color: #e5e7eb; min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; padding: 2rem 1rem;
+  }
+  .container { max-width: 560px; width: 100%; }
+  h1 { font-size: 1.75rem; margin-bottom: 0.25rem; color: #f9fafb; }
+  .subtitle { color: #9ca3af; margin-bottom: 1.5rem; font-size: 0.9rem; }
+  .card {
+    background: #1f2937; border: 1px solid #374151; border-radius: 12px;
+    padding: 1.5rem; margin-bottom: 1.5rem;
+  }
+  .card h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #f3f4f6; }
+  label { display: block; margin-bottom: 0.35rem; font-size: 0.85rem; color: #9ca3af; }
+  input, textarea, button, select {
+    width: 100%; padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.95rem;
+    outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  input, textarea, select {
+    background: #374151; border: 1px solid #4b5563; color: #f3f4f6; margin-bottom: 1rem;
+  }
+  input:focus, textarea:focus, select:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.25); }
+  textarea { resize: vertical; min-height: 100px; font-family: inherit; }
+  button {
+    background: #10b981; border: none; color: white; font-weight: 600; cursor: pointer;
+    margin-bottom: 0.5rem;
+  }
+  button:hover { background: #059669; }
+  button:disabled { background: #4b5563; cursor: not-allowed; }
+  button.secondary { background: #374151; border: 1px solid #4b5563; }
+  button.secondary:hover { background: #4b5563; }
+  .result {
+    margin-top: 1rem; padding: 0.75rem; border-radius: 8px; font-size: 0.9rem; display: none;
+  }
+  .result.success { background: #065f46; color: #6ee7b7; display: block; }
+  .result.error { background: #7f1d1d; color: #fca5a5; display: block; }
+  .result.info { background: #1e3a5f; color: #93c5fd; display: block; }
+  .actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
+  .actions button { width: auto; padding: 0.5rem 1rem; font-size: 0.85rem; }
+  .spinner {
+    display: inline-block; width: 16px; height: 16px; border: 2px solid #fff;
+    border-radius: 50%; border-top-color: transparent; animation: spin 0.6s linear infinite;
+    margin-right: 0.5rem; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .char-count { text-align: right; font-size: 0.75rem; color: #6b7280; margin-top: -0.75rem; margin-bottom: 1rem; }
+  .two-col { display: flex; gap: 1rem; }
+  .two-col > div { flex: 1; }
+  hr { border: none; border-top: 1px solid #374151; margin: 1rem 0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📤 Send WhatsApp Message</h1>
+  <p class="subtitle">Messages are queued for reliable delivery</p>
+
+  <div class="card">
+    <h2>🔑 Authentication</h2>
+    <label for="apikey-input">API Key</label>
+    <input id="apikey-input" type="password" placeholder="Enter API key" />
+  </div>
+
+  <div class="card">
+    <h2>✏️ Compose Message</h2>
+
+    <label for="userbot-select">UserBot</label>
+    <select id="userbot-select">
+      <option value="">Loading userBots...</option>
+    </select>
+
+    <label for="phone-input">Phone Number (destination)</label>
+    <input id="phone-input" type="tel" placeholder="85212345678" />
+
+    <label for="message-input">Message</label>
+    <textarea id="message-input" placeholder="Type your message here..." maxlength="4096"
+              oninput="document.getElementById('char-count').textContent = this.value.length + ' / 4096'"></textarea>
+    <div id="char-count" class="char-count">0 / 4096</div>
+
+    <button id="send-btn" onclick="sendMessage()">
+      📨 Send Message
+    </button>
+
+    <div id="result" class="result"></div>
+  </div>
+
+  <div class="actions">
+    <button class="secondary" onclick="location.href='/'">
+      ← Back to Register
+    </button>
+  </div>
+</div>
+
+<script>
+async function loadUserBotsForSelect() {
+  const select = document.getElementById('userbot-select')
+  try {
+    const res = await fetch('/api/userbots')
+    const data = await res.json()
+    const bots = data.userBots || []
+
+    if (bots.length === 0) {
+      select.innerHTML = '<option value="">No userBots — register one first</option>'
+      return
+    }
+
+    select.innerHTML = bots.map(b =>
+      `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)} (${escapeHtml(b.phone)})</option>`
+    ).join('')
+  } catch (err) {
+    select.innerHTML = '<option value="">Failed to load</option>'
+  }
+}
+
+async function sendMessage() {
+  const apiKey = document.getElementById('apikey-input').value
+  const userBot = document.getElementById('userbot-select').value
+  const phone = document.getElementById('phone-input').value.trim()
+  const message = document.getElementById('message-input').value.trim()
+  const btn = document.getElementById('send-btn')
+  const resultEl = document.getElementById('result')
+
+  resultEl.className = 'result'
+  resultEl.textContent = ''
+
+  if (!apiKey) {
+    resultEl.className = 'result error'
+    resultEl.textContent = 'Please enter your API key'
+    return
+  }
+
+  if (!userBot || !phone || !message) {
+    resultEl.className = 'result error'
+    resultEl.textContent = 'Please fill in all fields'
+    return
+  }
+
+  btn.disabled = true
+  btn.innerHTML = '<span class="spinner"></span> Sending...'
+
+  try {
+    const res = await fetch('/api/send-message', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey,
+      },
+      body: JSON.stringify({ userBot, phone, message })
+    })
+
+    const data = await res.json()
+
+    if (res.status === 202) {
+      resultEl.className = 'result info'
+      resultEl.innerHTML = `
+        ✅ Message queued for delivery<br>
+        <small>UserBot: ${escapeHtml(data.userBot)} | Phone: ${escapeHtml(data.phone)}</small><br>
+        <small>Queued at: ${data.queuedAt}</small>
+      `
+    } else if (res.ok) {
+      resultEl.className = 'result success'
+      resultEl.textContent = data.message || 'Message sent!'
+    } else {
+      resultEl.className = 'result error'
+      resultEl.textContent = data.message || data.error || 'Send failed (status ' + res.status + ')'
+    }
+  } catch (err) {
+    resultEl.className = 'result error'
+    resultEl.textContent = 'Network error: ' + err.message
+  } finally {
+    btn.disabled = false
+    btn.innerHTML = '📨 Send Message'
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div')
+  div.textContent = str
+  return div.innerHTML
+}
+
+loadUserBotsForSelect()
+</script>
+</body>
+</html>

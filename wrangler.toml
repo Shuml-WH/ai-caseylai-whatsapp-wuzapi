@@ -1,0 +1,45 @@
+name = "whatsapp-cf-workers-v2"
+main = "src/index.ts"
+compatibility_date = "2025-07-01"
+compatibility_flags = ["nodejs_compat_v2"]
+
+# ── R2: 儲存 creds 與 auth state ──
+[[r2_buckets]]
+binding = "WHATSAPP_STORAGE"
+bucket_name = "whatsapp-cf-workers-v2-storage"
+
+# ── KV: 分散式鎖（per-userBot lock）──
+[[kv_namespaces]]
+binding = "WHATSAPP_LOCKS"
+id = "placeholder-whatapp-locks-id"
+
+# ── Durable Objects: 每個 userBot 一個持久連線 ──
+[[durable_objects.bindings]]
+name = "WHATSAPP_SESSION"
+class_name = "WhatsAppSession"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["WhatsAppSession"]
+
+# ── Queue: 訊息排隊，確保順序不並發 ──
+[[queues.producers]]
+queue = "whatsapp-outbox"
+binding = "WHATSAPP_OUTBOX"
+
+[[queues.consumers]]
+queue = "whatsapp-outbox"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+
+# ── 環境變數 ──
+[vars]
+ADMIN_PASSWORD = ""  # 部署時用: wrangler secret put ADMIN_PASSWORD
+
+# ── 日誌 ──
+logpush = true
+
+[observability]
+enabled = true
+head_sampling_rate = 1
