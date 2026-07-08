@@ -29,3 +29,6 @@ cap_screen_photo/
 
 # Session debug notes
 SESSION_CONTEXT.md
+
+# AI assistant context (local only)
+CLAUDE.md
