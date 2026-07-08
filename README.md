@@ -64,7 +64,7 @@ This starts wuzapi, relay, and cloudflared together. The launcher auto-deploys t
 
 ### 2. Open the app
 
-Visit `https://ai-caseylai-whatsapp-wuzapi.tryprograming.workers.dev`.
+Visit `https://<your-worker>.workers.dev` — the URL is printed when you run `npm run deploy`.
 
 ### 3. Register a bot
 
@@ -93,13 +93,13 @@ API keys are managed through the Worker — not hardcoded in wuzapi. Create, lis
 
 ```bash
 # Create a new key
-curl -X POST https://ai-caseylai-whatsapp-wuzapi.tryprograming.workers.dev/api/keys \
+curl -X POST https://<your-worker>.workers.dev/api/keys \
   -H "Content-Type: application/json" \
   -H "X-Admin-Password: my-admin-secret-token" \
   -d '{"name":"My Key","role":"admin"}'
 
 # List all keys (masked)
-curl https://ai-caseylai-whatsapp-wuzapi.tryprograming.workers.dev/api/keys \
+curl https://<your-worker>.workers.dev/api/keys \
   -H "X-Admin-Password: my-admin-secret-token"
 ```
 
