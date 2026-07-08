@@ -1,0 +1,18 @@
+services:
+  wuzapi:
+    build: .
+    container_name: whatsapp-wuzapi
+    restart: unless-stopped
+    env_file:
+      - ./wuzapi.env
+    ports:
+      - "8080:8080"
+      - "3100:3100"
+    volumes:
+      - ./dbdata:/app/dbdata
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3100/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

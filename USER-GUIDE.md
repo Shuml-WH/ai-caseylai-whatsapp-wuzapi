@@ -39,9 +39,11 @@ Each bot links as a separate WhatsApp session — you can have multiple bots act
 
 | Problem | Fix |
 |---|---|
-| "Cannot reach wuzapi" when registering | The launcher (`python launcher.py`) isn't running on your PC — start it |
-| QR code doesn't appear | Wait a moment, the launcher may be restarting. If it persists, restart the launcher |
+| "Cannot reach wuzapi" when registering | The launcher isn't running — start it with `docker compose up -d` or `python launcher.py` |
+| QR code doesn't appear | Wait a moment, the service may be restarting. If it persists, restart: `docker compose restart` or restart the launcher |
 | QR scan says "Couldn't link device" | Unlink old devices from WhatsApp first. Try scanning again — iOS sometimes needs 2 attempts |
 | Bot appears but no phone number (○ QR not scanned) | The QR was generated but never scanned. Delete and re-register |
 | Send fails with "device JID" error | The bot you selected hasn't scanned its QR yet — only use bots with ● Connected status |
 | Old bots reappear after delete | Click **Refresh List** to sync — the list is cached from D1 |
+| Container keeps restarting | Check logs: `docker compose logs wuzapi` — usually a config issue with `wuzapi.env` |
+| Tunnel URL changed | The cloudflared tunnel URL is ephemeral. Restart the container: `docker compose restart` |

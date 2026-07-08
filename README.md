@@ -32,6 +32,60 @@ The only component that runs locally is **wuzapi** — it holds the persistent W
 
 ## Prerequisites
 
+Both options require:
+- A **Cloudflare account** (free tier) — run `npx wrangler login`
+
+---
+
+## Setup — Docker (Recommended)
+
+### 1. Install Docker
+
+Download and install **Docker Desktop**: [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/)
+
+### 2. Configure environment
+
+```bash
+# Copy the example config (first time only)
+cp wuzapi.env.example wuzapi.env
+
+# Edit wuzapi.env to set your own secrets
+```
+
+### 3. Build and start
+
+```bash
+docker compose up --build -d
+```
+
+This builds the image (wuzapi + cloudflared + relay.py) and starts all services in one container.
+
+### 4. Deploy the Worker
+
+```bash
+# Set the tunnel URL as a secret (get it from logs: docker logs whatsapp-wuzapi)
+npx wrangler secret put WUZAPI_URL
+
+# Deploy
+npm run deploy
+```
+
+### Docker commands
+
+```bash
+docker compose up --build -d    # Build and start
+docker compose logs -f           # View all logs
+docker compose restart           # Restart all services
+docker compose down              # Stop everything
+docker ps                        # Check container status
+```
+
+---
+
+## Setup — Local (Manual)
+
+### 1. Download binaries
+
 The repo doesn't include binaries — download them once:
 
 | File | Where to get it |
@@ -47,14 +101,21 @@ winget install cloudflare.cloudflared    # cloudflared
 
 Place both `.exe` files in the project root, next to `launcher.py`.
 
-You also need:
+### 2. Install dependencies
+
 - **Python 3** (for `launcher.py` and `relay.py`)
 - **Node.js** (for `wrangler deploy`)
-- A **Cloudflare account** (free tier) — run `npx wrangler login`
 
-## Quick Start
+### 3. Configure environment
 
-### 1. Start local services
+```bash
+# Copy the example config (first time only)
+cp wuzapi.env.example wuzapi.env
+
+# Edit wuzapi.env to set your own secrets
+```
+
+### 4. Start local services
 
 ```bash
 python launcher.py
@@ -62,18 +123,27 @@ python launcher.py
 
 This starts wuzapi, relay, and cloudflared together. The launcher auto-deploys the Worker whenever the tunnel URL changes.
 
-### 2. Open the app
+### 5. Deploy the Worker (if not auto-deployed)
+
+```bash
+npx wrangler secret put WUZAPI_URL
+npm run deploy
+```
+
+---
+
+## Open the App
 
 Visit `https://<your-worker>.workers.dev` — the URL is printed when you run `npm run deploy`.
 
-### 3. Register a bot
+### Register a bot
 
 1. Enter a bot name
 2. Admin password: `my-admin-secret-token`
 3. Click **Generate QR Code**
 4. Scan with WhatsApp: Settings → Linked Devices → Link a Device
 
-### 4. Send a message
+### Send a message
 
 Go to `/site/send-message`, enter a phone number with country code, type your message, and click Send.
 
@@ -83,9 +153,23 @@ Go to `/site/send-message`, enter a phone number with country code, type your me
 |---|---|---|
 | **Worker** | Cloudflare Edge | Serves HTML pages, proxies API calls, validates auth, queries D1 |
 | **D1** | Cloudflare Edge | Persistent storage — bot list, message history, API keys |
-| **wuzapi** | Your PC | WhatsApp WebSocket connection, QR generation, message sending |
-| **cloudflared** | Your PC | Secure tunnel from Cloudflare Edge to your PC |
-| **relay.py** | Your PC | Webhook relay for incoming messages |
+| **wuzapi** | Your PC (or Docker) | WhatsApp WebSocket connection, QR generation, message sending |
+| **cloudflared** | Your PC (or Docker) | Secure tunnel from Cloudflare Edge to your PC |
+| **relay.py** | Your PC (or Docker) | Webhook relay for incoming messages |
+
+### Docker Architecture
+
+When using Docker, all three local services (wuzapi, relay, cloudflared) run inside a single container:
+
+```
+Your PC (Docker)                       Cloudflare Edge (FREE)
+┌────────────────────────────┐         ┌──────────────────────────────┐
+│ whatsapp-wuzapi container  │         │ Worker (frontend + API)      │
+│  ├─ wuzapi        :8080    │         │ D1 (database + auth)         │
+│  ├─ relay.py      :3100    │◄─tunnel─│ workers.dev (DNS)            │
+│  └─ cloudflared            │         └──────────────────────────────┘
+└────────────────────────────┘
+```
 
 ## API Keys
 

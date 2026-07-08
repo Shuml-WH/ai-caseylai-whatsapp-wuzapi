@@ -1,0 +1,9 @@
+.git
+node_modules
+.wrangler
+*.exe
+*.log
+dbdata
+cap_screen_photo
+.env
+wuzapi.env
