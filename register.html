@@ -77,7 +77,7 @@
     <input id="userbot-input" type="text" placeholder="mybot01" maxlength="32" />
 
     <label for="password-input">Admin Password</label>
-    <input id="password-input" type="password" placeholder="Enter admin password" />
+    <input id="password-input" type="password" value="my-admin-secret-token" placeholder="Enter admin password" />
 
     <button id="register-btn" onclick="registerWhatsApp()">
       Generate QR Code
@@ -143,8 +143,10 @@ async function registerWhatsApp() {
     if (data.link) {
       qrImg.src = data.link
       qrContainer.style.display = 'block'
-      qrStatus.textContent = 'Scan with WhatsApp on your phone. The UserBot will appear in the list after ~30s.'
+      qrStatus.textContent = 'Scan with WhatsApp on your phone. Auto-detecting...'
       btn.textContent = '✓ QR Generated'
+      loadUserBots()  // show new bot in list immediately
+      pollForScan(userBot)
     } else if (data.status === 'already_connected') {
       errorEl.textContent = 'This UserBot is already connected!'
       btn.textContent = 'Generate QR Code'
@@ -171,16 +173,21 @@ async function loadUserBots() {
       return
     }
 
-    listEl.innerHTML = bots.map(b => `
+    listEl.innerHTML = bots.map(b => {
+      const connected = b.phone && b.phone !== 'unknown'
+      const status = connected
+        ? `<span style="color:#4ade80;">● Connected: ${escapeHtml(b.phone.split('@')[0] || b.phone)}</span>`
+        : '<span style="color:#f87171;">○ QR not scanned yet</span>'
+      return `
       <div class="userbot-item">
         <div>
           <div class="userbot-name">${escapeHtml(b.name)}</div>
-          <div class="userbot-phone">Phone: ${escapeHtml(b.phone)} | Updated: ${b.updatedAt}</div>
+          <div class="userbot-phone">${status} | Updated: ${b.updatedAt}</div>
         </div>
         <button class="danger" style="width:auto;padding:0.3rem 0.6rem;font-size:0.75rem;"
                 onclick="deleteUserBot('${escapeHtml(b.name)}')">Delete</button>
       </div>
-    `).join('')
+    `}).join('')
   } catch (err) {
     listEl.innerHTML = `<p class="error">Failed to load: ${err.message}</p>`
   }
@@ -189,8 +196,13 @@ async function loadUserBots() {
 async function deleteUserBot(name) {
   if (!confirm(`Delete userBot "${name}"? This cannot be undone.`)) return
 
+  const password = document.getElementById('password-input').value
+
   try {
-    const res = await fetch(`/api/userbots/${name}`, { method: 'DELETE' })
+    const res = await fetch(`/api/userbots/${name}`, {
+      method: 'DELETE',
+      headers: { 'X-Admin-Password': password }
+    })
     if (res.ok) {
       loadUserBots()
     } else {
@@ -200,6 +212,38 @@ async function deleteUserBot(name) {
   } catch (err) {
     alert('Delete failed: ' + err.message)
   }
+}
+
+// Auto-poll for QR scan completion
+function pollForScan(userBot) {
+  const qrStatus = document.getElementById('qr-status')
+  const qrContainer = document.getElementById('qr-container')
+  let attempts = 0
+  const maxAttempts = 24  // 2 minutes
+  const pollInterval = setInterval(async () => {
+    attempts++
+    try {
+      const res = await fetch('/api/userbots')
+      const data = await res.json()
+      const bot = (data.userBots || []).find(b => b.name === userBot)
+      // Sync D1 from wuzapi to get latest phone/JID
+      if (attempts % 3 === 0) {
+        fetch('/api/sync-bots', { method: 'POST' }).catch(() => {})
+      }
+      if (bot && bot.phone && bot.phone !== 'unknown') {
+        clearInterval(pollInterval)
+        qrStatus.textContent = '✅ Connected! Phone: ' + bot.phone.split('@')[0]
+        loadUserBots()
+      } else if (attempts >= maxAttempts) {
+        clearInterval(pollInterval)
+        qrStatus.textContent = 'QR may have expired. Click "Refresh List" to check, or register again.'
+      } else {
+        qrStatus.textContent = `Waiting for scan... (${(maxAttempts - attempts) * 5}s remaining)`
+      }
+    } catch {
+      // Network error, keep polling
+    }
+  }, 5000)
 }
 
 function escapeHtml(str) {

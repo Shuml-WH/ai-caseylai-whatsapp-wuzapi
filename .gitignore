@@ -4,3 +4,28 @@ dist/
 *.log
 .DS_Store
 worker-configuration.d.ts
+
+# Python
+__pycache__/
+*.pyc
+
+# Databases (contains session data and tokens)
+dbdata/
+*.db
+*.db-shm
+*.db-wal
+
+# Binaries (user downloads these separately)
+wuzapi.exe
+cloudflared.exe
+
+# Secrets and temp files
+wuzapi.env
+qrcode.png
+qr-code.png
+
+# Screenshots
+cap_screen_photo/
+
+# Session debug notes
+SESSION_CONTEXT.md

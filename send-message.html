@@ -65,7 +65,7 @@
   <div class="card">
     <h2>🔑 Authentication</h2>
     <label for="apikey-input">API Key</label>
-    <input id="apikey-input" type="password" placeholder="Enter API key" />
+    <input id="apikey-input" type="password" value="my-admin-secret-token" placeholder="Enter API key" />
   </div>
 
   <div class="card">
@@ -111,9 +111,16 @@ async function loadUserBotsForSelect() {
       return
     }
 
-    select.innerHTML = bots.map(b =>
-      `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)} (${escapeHtml(b.phone)})</option>`
-    ).join('')
+    // Only show bots that are actually connected (have a JID)
+    const connected = bots.filter(b => b.phone && b.phone !== 'unknown')
+    if (connected.length === 0) {
+      select.innerHTML = '<option value="">No connected bots — scan a QR first</option>'
+      return
+    }
+    select.innerHTML = connected.map(b => {
+      const phone = b.phone.split('@')[0] || b.phone
+      return `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)} (📱 ${escapeHtml(phone)})</option>`
+    }).join('')
   } catch (err) {
     select.innerHTML = '<option value="">Failed to load</option>'
   }
